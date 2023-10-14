@@ -1,5 +1,9 @@
 const userModel = require('../Model/userModel');
 const encryptanddecrypt = require('../utils/bcrypt');
+const jwt = require('jsonwebtoken');
+const {generateResponse}=require('../MiddleWare/response');
+require('dotenv').config();
+const secretKey = process.env.SECRET_KEY;
 
 const loginController = async (req, res) => {
     try {
@@ -7,18 +11,22 @@ const loginController = async (req, res) => {
         const user = await userModel.findOne({ email: email });
 
         if (!user) {
-            res.status(404).json({ message: "User not registered" });
+            generateResponse(res, 404, "User not registered");
             return;
         }
 
         const isPasswordValid = encryptanddecrypt.matchPwd(password, user.password);
+
         if (isPasswordValid) {
-            res.status(200).json({ message: "Login successful"});
+            jwt.sign({ user }, secretKey, { expiresIn: '300s' }, (err, token) => {
+                if (err) generateResponse(res, 500, "Internal server error");
+                else res.status(200).json({ message: "Login successful", Token: token });
+            });
         } else {
-            res.status(403).json({ message: "Invalid email or password" });
+            generateResponse(res, 403, "Invalid email or password");
         }
     } catch (error) {
-        res.status(500).json({ message: "Internal error" });
+        generateResponse(res, 500, "Internal server error");
     }
 };
 
@@ -34,14 +42,28 @@ const registerController = async (req, res) => {
         });
 
         if (user) {
-            res.status(201).json({ message: "User registered successfully" });
+            generateResponse(res, 201, "User registered successfully");
         } else {
-            res.status(500).json({ message: "Failed to register user" });
+            generateResponse(res, 500, "Failed to register user");
         }
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Internal server error" });
+        generateResponse(res, 500, "Internal server error");
     }
 };
 
-module.exports = { loginController, registerController };
+const logoutController = async (req, res) => {
+    try {
+        const token = await new Promise((resolve, reject) => {
+            jwt.sign({}, secretKey, { expiresIn: '1s' }, (err, token) => {
+                if (err) reject(err);
+                resolve(token);
+            });
+        });
+        res.status(200).json({ message: 'Logout successful', Token: token });
+    } catch (error) {
+        generateResponse(res, 500, "Internal server error");
+    }
+};
+
+module.exports = { loginController, registerController, logoutController };

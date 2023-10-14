@@ -1,6 +1,9 @@
 const taskModel = require('../Model/taskModel')
 const { default: mongoose } = require('mongoose');
-const {v4}=require('uuid');
+const { v4 } = require('uuid');
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
+const secretKey = process.env.SECRET_KEY;
 
 const GetNotesController = async (req, res) => {
     try {
@@ -10,7 +13,13 @@ const GetNotesController = async (req, res) => {
             return;
         }
         else {
-            res.status(200).json(notes);
+            jwt.verify(req.token, secretKey, (err, authData) => {
+                if (err) {
+                    res.status(403).json({ message: "Forbidden: Invalid Token" });
+                } else {
+                    res.status(200).json({Notes : notes});
+                }
+            });
         }
     } catch (error) {
         res.status(500).json({ message: "Internal error" });
@@ -18,11 +27,11 @@ const GetNotesController = async (req, res) => {
 };
 
 const AddNotesController = async (request, response) => {
-    const { title, desc,useremail } = request.body;
+    const { title, desc, useremail } = request.body;
     console.log(request.body);
 
     try {
-        const uuid=v4();
+        const uuid = v4();
         const dateOfCreation = new Date();
         const taskResponse = await taskModel.create({
             taskId: uuid,
